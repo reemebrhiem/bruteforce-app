@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>إنشاء حساب</title>
+</head>
+<body style="text-align:center; margin-top:100px">
+
+<h2>إنشاء حساب جديد</h2>
+
+<input id="username" placeholder="اسم المستخدم"><br><br>
+<input id="password" type="password" placeholder="كلمة المرور"><br><br>
+<button onclick="register()">تسجيل</button>
+
+<p id="msg"></p>
+
+<script>
+function register(){
+    fetch("/register", {
+        method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+        body:`username=${username.value}&password=${password.value}`
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        msg.innerText = d.message;
+        if(d.status==="success"){
+            setTimeout(()=>location.href="/",1500);
+        }
+    });
+}
+</script>
+</body>
+</html>
