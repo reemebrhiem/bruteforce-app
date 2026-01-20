@@ -1,5 +1,5 @@
-from flask_limiter import Limiter
-from falsk_limmiter.util import get_remote_address
+from flask-limiter import Limiter
+from falsk-limiter.util import get_remote_address
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 from datetime import datetime, timedelta
@@ -124,3 +124,4 @@ def dashboard(username):
 if __name__ == "__main__":
 
     app.run(host="0.0.0.0", port=10000)
+
