@@ -93,7 +93,7 @@ def register():
     return jsonify({
         "status": "success",
         "message": "تم إنشاء الحساب بنجاح"
-    })
+    }),200
 
 @app.route("/login", methods=["POST"])
 @limiter.limit("3 per minute") 
@@ -114,7 +114,7 @@ def login():
         return jsonify({
             "status": "error",
             "message": "اسم المستخدم غير موجود"
-        })
+        }),404
 
     real_password = users.loc[
         users["username"] == username, "password"
@@ -140,6 +140,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
