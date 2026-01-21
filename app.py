@@ -21,8 +21,8 @@ limiter = Limiter(
 USERS_FILE = "users.csv"
 LOGS_FILE = "login_logs.csv"
 
-FAILED_THRESHOLD = 3   # عدد المحاولات
-BLOCK_MINUTES = 1      # مدة الحظر بالدقائق
+FAILED_THRESHOLD = 3 
+BLOCK_MINUTES = 1 
 
 if not os.path.exists(USERS_FILE):
     pd.DataFrame(columns=["username", "password"]).to_csv(USERS_FILE, index=False)
@@ -139,4 +139,5 @@ def dashboard(username):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
 
