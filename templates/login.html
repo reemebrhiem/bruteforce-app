@@ -122,7 +122,7 @@ function login() {
             window.location.href = "/dashboard/" + username;
         }
         else if (result === "ATTACK") {
-            msg.innerText =  تم اكتشاف هجوم Brute Force، تم حظر الدخول دقيقة";
+            msg.innerText = " تم اكتشاف هجوم Brute Force، تم حظر الدخول دقيقة";
             block();
             startTimer(60);
         }
@@ -137,3 +137,4 @@ function login() {
 </script>
 </body>
 </html>
+
