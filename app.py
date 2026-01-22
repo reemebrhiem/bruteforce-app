@@ -96,43 +96,30 @@ def register():
     }),200
 
 @app.route("/login", methods=["POST"])
-@limiter.limit("3 per minute") 
 def login():
     username = request.form.get("username")
     password = request.form.get("password")
 
     if is_blocked(username):
-        return jsonify({
-            "status": "blocked",
-            "message": "تم حظر الدخول لمدة دقيقة بسبب محاولات متكررة"
-        }), 429
+        return "ATTACK DETECTED", 403
 
     users = pd.read_csv(USERS_FILE)
 
     if username not in users["username"].values:
         save_log(username, 0)
-        return jsonify({
-            "status": "error",
-            "message": "اسم المستخدم غير موجود"
-        }),404
+        return "INVALID USER", 401
 
-    real_password = users.loc[
-        users["username"] == username, "password"
-    ].values[0]
+    valid = users[
+        (users["username"] == username) &
+        (users["password"] == password)
+    ]
 
-    if password == real_password:
+    if not valid.empty:
         save_log(username, 1)
-        return jsonify({
-            "status": "success",
-            "redirect": f"/dashboard/{username}"
-        })
+        return "LOGIN SUCCESS", 200
     else:
         save_log(username, 0)
-        return jsonify({
-            "status": "error",
-            "message": "كلمة المرور غير صحيحة"
-        })
-
+        return "WRONG PASSWORD", 401
 @app.route("/dashboard/<username>")
 def dashboard(username):
     return render_template("dashboard.html", username=username)
@@ -140,6 +127,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
