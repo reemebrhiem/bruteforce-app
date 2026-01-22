@@ -1,76 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
+    <meta charset="UTF-8">
     <title>تسجيل الدخول</title>
+
     <style>
-        body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial }
-        .box { width:300px; text-align:center }
-        input, button { width:100%; margin:5px 0; padding:8px }
-        button { cursor:pointer }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial;
+            background: #f5f5f5;
+        }
+
+        .box {
+            width: 320px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        input, button {
+            width: 100%;
+            margin: 6px 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        #msg {
+            color: red;
+            margin-top: 10px;
+        }
+
+        #timer {
+            color: blue;
+            margin-top: 5px;
+        }
     </style>
 </head>
+
 <body>
+
 <div class="box">
     <h2>تسجيل الدخول</h2>
 
     <input id="username" placeholder="اسم المستخدم">
     <input id="password" type="password" placeholder="كلمة المرور">
-    <button onclick="login()">دخول</button>
-    <button onclick="location.href='/register'">إنشاء حساب</button>
 
-    <p id="msg" style="color:red"></p>
-    <p id="timer" style="color:blue"></p>
+    <button id="loginBtn" onclick="login()">دخول</button>
+    <button id="registerBtn" onclick="location.href='/register'">إنشاء حساب</button>
+
+    <div id="msg"></div>
+    <div id="timer"></div>
 </div>
 
 <script>
 let blocked = false;
+let countdownInterval = null;
 
-function startTimer(seconds){
+function startTimer(seconds) {
     const timer = document.getElementById("timer");
     let s = seconds;
 
-    timer.innerText = "يمكنك المحاولة بعد " + s + " ثانية";
+    timer.innerText = "تم الحظر، حاول بعد " + s + " ثانية";
 
-    const i = setInterval(() => {
+    countdownInterval = setInterval(() => {
         s--;
-        timer.innerText = "يمكنك المحاولة بعد " + s + " ثانية";
-        if(s <= 0){
-            clearInterval(i);
+        timer.innerText = "تم الحظر، حاول بعد " + s + " ثانية";
+
+        if (s <= 0) {
+            clearInterval(countdownInterval);
             timer.innerText = "";
+            unblock();
         }
     }, 1000);
 }
 
-function login(){
-    if(blocked) return;
+function block() {
+    blocked = true;
+    document.getElementById("loginBtn").disabled = true;
+    document.getElementById("registerBtn").disabled = true;
+}
 
+function unblock() {
+    blocked = false;
+    document.getElementById("loginBtn").disabled = false;
+    document.getElementById("registerBtn").disabled = false;
+    document.getElementById("msg").innerText = "";
+}
+
+function login() {
+    if (blocked) return;
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
     const msg = document.getElementById("msg");
+
     msg.innerText = "";
 
     fetch("/login", {
-        method:"POST",
-        headers:{ "Content-Type":"application/x-www-form-urlencoded" },
-        body:`username=${username.value}&password=${password.value}`
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: "username=" + username + "&password=" + password
     })
-    .then(r => r.json())
-    .then(data => {
-        if(data.status === "success"){
-            window.location.href = "/dashboard/" + username.value;
+    .then(res => {
+        if (res.status === 200) return "SUCCESS";
+        if (res.status === 401) return "FAILED";
+        if (res.status === 403) return "ATTACK";
+    })
+    .then(result => {
+        if (result === "SUCCESS") {
+            window.location.href = "/dashboard/" + username;
         }
-        else if(data.status === "blocked"){
-            msg.innerText = data.message;
-            blocked = true;
-            document.querySelectorAll("button").forEach(b => b.disabled = true);
+        else if (result === "ATTACK") {
+            msg.innerText =  تم اكتشاف هجوم Brute Force، تم حظر الدخول دقيقة";
+            block();
             startTimer(60);
-            setTimeout(() => {
-                blocked = false;
-                document.querySelectorAll("button").forEach(b => b.disabled = false);
-                msg.innerText = "";
-            }, 60000);
         }
-        else{
-            msg.innerText = data.message;
+        else {
+            msg.innerText = "اسم المستخدم أو كلمة المرور غير صحيحة";
         }
+    })
+    .catch(() => {
+        msg.innerText = "خطأ في الاتصال بالسيرفر";
     });
 }
 </script>
