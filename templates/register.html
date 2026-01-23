@@ -3,28 +3,38 @@
 <head>
     <title>إنشاء حساب</title>
 </head>
+
 <body style="text-align:center; margin-top:100px">
 
 <h2>إنشاء حساب جديد</h2>
 
 <input id="username" placeholder="اسم المستخدم"><br><br>
 <input id="password" type="password" placeholder="كلمة المرور"><br><br>
+
 <button onclick="register()">تسجيل</button>
 
-<p id="msg"></p>
+<p id="msg" style="color:red"></p>
 
 <script>
 function register(){
+    const msg = document.getElementById("msg");
+
     fetch("/register", {
-        method:"POST",
-        headers:{ "Content-Type":"application/x-www-form-urlencoded" },
-        body:`username=${username.value}&password=${password.value}`
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "username=" + username.value + "&password=" + password.value
     })
-    .then(r=>r.json())
-    .then(d=>{
-        msg.innerText = d.message;
-        if(d.status==="success"){
-            setTimeout(()=>location.href="/",1500);
+    .then(res => {
+        if (res.status === 201) {
+            msg.style.color = "green";
+            msg.innerText = "تم إنشاء الحساب بنجاح";
+            setTimeout(() => location.href = "/", 1500);
+        }
+        else if (res.status === 409) {
+            msg.innerText = "اسم المستخدم موجود مسبقًا";
+        }
+        else {
+            msg.innerText = "حدث خطأ";
         }
     });
 }
