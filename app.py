@@ -90,19 +90,19 @@ def register():
     return "CREATED", 201
 
 @app.route("/login", methods=["POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("5 per minute")
 def login():
     username = request.form.get("username")
     password = request.form.get("password")
 
     if predict_attack(username):
-        return "ATTACK", 200
+        return "ATTACK"
 
     users = pd.read_csv(USERS_FILE)
 
     if username not in users["username"].values:
         save_log(username, 0)
-        return "FAILED", 200
+        return "FAILED"
 
     valid = users[
         (users["username"] == username) &
@@ -111,10 +111,10 @@ def login():
 
     if not valid.empty:
         save_log(username, 1)
-        return "SUCCESS", 200
+        return "SUCCESS"
     else:
         save_log(username, 0)
-        return "FAILED", 200
+        return "FAILED"
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
@@ -123,4 +123,5 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
