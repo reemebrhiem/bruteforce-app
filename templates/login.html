@@ -63,7 +63,6 @@
 
 <script>
 let blocked = false;
-let countdownInterval = null;
 
 function startTimer(seconds) {
     const timer = document.getElementById("timer");
@@ -71,12 +70,12 @@ function startTimer(seconds) {
 
     timer.innerText = "تم الحظر، حاول بعد " + s + " ثانية";
 
-    countdownInterval = setInterval(() => {
+    const interval = setInterval(() => {
         s--;
         timer.innerText = "تم الحظر، حاول بعد " + s + " ثانية";
 
         if (s <= 0) {
-            clearInterval(countdownInterval);
+            clearInterval(interval);
             timer.innerText = "";
             unblock();
         }
@@ -112,17 +111,13 @@ function login() {
         },
         body: "username=" + username + "&password=" + password
     })
-    .then(res => {
-        if (res.status === 200) return "SUCCESS";
-        if (res.status === 401) return "FAILED";
-        if (res.status === 403) return "ATTACK";
-    })
+    .then(res => res.text())   <!-- هذا السطر المهم -->
     .then(result => {
         if (result === "SUCCESS") {
             window.location.href = "/dashboard/" + username;
         }
         else if (result === "ATTACK") {
-            msg.innerText = " تم اكتشاف هجوم Brute Force، تم حظر الدخول دقيقة";
+            msg.innerText = "تم اكتشاف هجوم Brute Force وتم حظر الدخول لمدة دقيقة";
             block();
             startTimer(60);
         }
@@ -137,4 +132,3 @@ function login() {
 </script>
 </body>
 </html>
-
