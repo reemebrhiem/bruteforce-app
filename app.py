@@ -90,7 +90,6 @@ def register():
     return "CREATED", 201
 
 @app.route("/login", methods=["POST"])
-@limiter.limit("5 per minute")
 def login():
     username = request.form.get("username")
     password = request.form.get("password")
@@ -115,7 +114,7 @@ def login():
     else:
         save_log(username, 0)
         return "FAILED"
-
+        
 @app.route("/dashboard/<username>")
 def dashboard(username):
     return render_template("dashboard.html", username=username)
@@ -123,5 +122,6 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
