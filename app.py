@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.secret_key = "secret123"
 
 USERS_FILE = "users.csv"
-LOGS_FILE = "login_logs.csv"
+LOGS_FILE = "login_logs_new.csv"   
 
 FAILED_THRESHOLD = 3
 BLOCK_MINUTES = 1
@@ -20,7 +20,7 @@ if not os.path.exists(USERS_FILE):
 
 if not os.path.exists(LOGS_FILE):
     pd.DataFrame(columns=["username", "success", "timestamp", "ip"]).to_csv(LOGS_FILE, index=False)
-    
+
 def load_logs():
     if not os.path.exists(LOGS_FILE) or os.path.getsize(LOGS_FILE) == 0:
         return pd.DataFrame(columns=["username", "success", "timestamp", "ip"])
@@ -31,7 +31,8 @@ def load_logs():
 def save_log(username, success):
     df = load_logs()
 
-    ip = request.remote_addr
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
     new = {
         "username": username,
         "success": success,
@@ -52,13 +53,6 @@ def extract_features(username):
     attempts = len(user)
     time_span = (user["timestamp"].max() - user["timestamp"].min()).seconds
     return [attempts, time_span]
-
-def threshold_attack(username):
-    df = load_logs()
-    window = datetime.now() - timedelta(minutes=BLOCK_MINUTES)
-    recent = df[(df["username"] == username) & (df["timestamp"] >= window)]
-    failed = recent[recent["success"] == 0]
-    return len(failed) >= FAILED_THRESHOLD
 
 def predict_attack(username):
     X = extract_features(username)
@@ -99,6 +93,7 @@ def login():
     password = request.form.get("password")
 
     if predict_attack(username):
+        save_log(username, 0)
         return "ATTACK"
 
     users = pd.read_csv(USERS_FILE)
@@ -118,7 +113,7 @@ def login():
     else:
         save_log(username, 0)
         return "FAILED"
-        
+
 @app.route("/dashboard/<username>")
 def dashboard(username):
     return render_template("dashboard.html", username=username)
@@ -126,8 +121,3 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
-
-
-
-
