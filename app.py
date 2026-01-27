@@ -20,7 +20,10 @@ if not os.path.exists(USERS_FILE):
 
 if not os.path.exists(LOGS_FILE):
     pd.DataFrame(columns=["username", "success", "timestamp", "ip"]).to_csv(LOGS_FILE, index=False)
+    
 def load_logs():
+    if not os.path.exists(LOGS_FILE) or os.path.getsize(LOGS_FILE) == 0:
+        return pd.DataFrame(columns=["username", "success", "timestamp", "ip"])
     df = pd.read_csv(LOGS_FILE)
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     return df
@@ -29,7 +32,6 @@ def save_log(username, success):
     df = load_logs()
 
     ip = request.remote_addr
-
     new = {
         "username": username,
         "success": success,
@@ -124,6 +126,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
