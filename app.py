@@ -19,8 +19,7 @@ if not os.path.exists(USERS_FILE):
     pd.DataFrame(columns=["username", "password"]).to_csv(USERS_FILE, index=False)
 
 if not os.path.exists(LOGS_FILE):
-    pd.DataFrame(columns=["username", "success", "timestamp"]).to_csv(LOGS_FILE, index=False)
-
+    pd.DataFrame(columns=["username", "success", "timestamp", "ip"]).to_csv(LOGS_FILE, index=False)
 def load_logs():
     df = pd.read_csv(LOGS_FILE)
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
@@ -28,14 +27,17 @@ def load_logs():
 
 def save_log(username, success):
     df = load_logs()
-    df = pd.concat([
-        df,
-        pd.DataFrame([{
-            "username": username,
-            "success": success,
-            "timestamp": datetime.now()
-        }])
-    ], ignore_index=True)
+
+    ip = request.remote_addr
+
+    new = {
+        "username": username,
+        "success": success,
+        "timestamp": datetime.now(),
+        "ip": ip
+    }
+
+    df = pd.concat([df, pd.DataFrame([new])], ignore_index=True)
     df.to_csv(LOGS_FILE, index=False)
 
 def extract_features(username):
@@ -122,6 +124,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
