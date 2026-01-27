@@ -1,62 +1,61 @@
-from flask import Flask, render_template, request
-import pandas as pd
+from flask import Flask, render_template, request, redirect
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
-import os
 import joblib
-
-model, features = joblib.load("model.joblib")
+import os
 
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-USERS_FILE = "users.csv"
-LOGS_FILE = "login_logs_new.csv"   
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+model, features = joblib.load("model.joblib")
 
 FAILED_THRESHOLD = 3
 BLOCK_MINUTES = 1
 
-if not os.path.exists(USERS_FILE):
-    pd.DataFrame(columns=["username", "password"]).to_csv(USERS_FILE, index=False)
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(50), nullable=False)
 
-if not os.path.exists(LOGS_FILE):
-    pd.DataFrame(columns=["username", "success", "timestamp", "ip"]).to_csv(LOGS_FILE, index=False)
+class LoginLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50))
+    success = db.Column(db.Integer)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    ip = db.Column(db.String(50))
 
-def load_logs():
-    if not os.path.exists(LOGS_FILE) or os.path.getsize(LOGS_FILE) == 0:
-        return pd.DataFrame(columns=["username", "success", "timestamp", "ip"])
-    df = pd.read_csv(LOGS_FILE)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-    return df
+with app.app_context():
+    db.create_all()
 
 def save_log(username, success):
-    df = load_logs()
-
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-
-    new = {
-        "username": username,
-        "success": success,
-        "timestamp": datetime.now(),
-        "ip": ip
-    }
-
-    df = pd.concat([df, pd.DataFrame([new])], ignore_index=True)
-    df.to_csv(LOGS_FILE, index=False)
+    log = LoginLog(
+        username=username,
+        success=success,
+        ip=request.remote_addr
+    )
+    db.session.add(log)
+    db.session.commit()
 
 def extract_features(username):
-    df = load_logs()
-    user = df[df["username"] == username]
+    logs = LoginLog.query.filter_by(username=username).all()
 
-    if user.empty:
+    if not logs:
         return [0, 0]
 
-    attempts = len(user)
-    time_span = (user["timestamp"].max() - user["timestamp"].min()).seconds
+    attempts = len(logs)
+    times = [log.timestamp for log in logs]
+    time_span = (max(times) - min(times)).seconds
+
     return [attempts, time_span]
 
 def predict_attack(username):
-    X = extract_features(username)
     try:
+        X = extract_features(username)
         return model.predict([X])[0] == 1
     except:
         return False
@@ -65,49 +64,38 @@ def predict_attack(username):
 def login_page():
     return render_template("login.html")
 
-@app.route("/register", methods=["GET"])
-def register_page():
-    return render_template("register.html")
-
-@app.route("/register", methods=["POST"])
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    if request.method == "GET":
+        return render_template("register.html")
 
-    users = pd.read_csv(USERS_FILE)
+    username = request.form["username"]
+    password = request.form["password"]
 
-    if username in users["username"].values:
-        return "EXISTS", 409
+    if User.query.filter_by(username=username).first():
+        return "USER EXISTS"
 
-    users = pd.concat([
-        users,
-        pd.DataFrame([{"username": username, "password": password}])
-    ], ignore_index=True)
+    user = User(username=username, password=password)
+    db.session.add(user)
+    db.session.commit()
 
-    users.to_csv(USERS_FILE, index=False)
-    return "CREATED", 201
+    return redirect("/")
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    username = request.form["username"]
+    password = request.form["password"]
 
     if predict_attack(username):
-        save_log(username, 0)
-        return "ATTACK"
+        return "ATTACK DETECTED"
 
-    users = pd.read_csv(USERS_FILE)
+    user = User.query.filter_by(username=username).first()
 
-    if username not in users["username"].values:
+    if not user:
         save_log(username, 0)
         return "FAILED"
 
-    valid = users[
-        (users["username"] == username) &
-        (users["password"] == password)
-    ]
-
-    if not valid.empty:
+    if user.password == password:
         save_log(username, 1)
         return "SUCCESS"
     else:
@@ -116,8 +104,9 @@ def login():
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
-    return render_template("dashboard.html", username=username)
-
+    logs = LoginLog.query.filter_by(username=username).all()
+    return render_template("dashboard.html", username=username, logs=logs)
+    
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
