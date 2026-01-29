@@ -7,7 +7,9 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -62,15 +64,15 @@ def is_blocked(username):
     return False, 0
 
 def extract_features(username):
-    logs = LoginLog.query.filter_by(username=username).all()
-    if not logs:
-        return [0, 0]
+    logs = LoginLog.query.filter_by(username=username, success=0).all()
 
-    attempts = len(logs)
-    times = [log.timestamp for log in logs]
+    if len(logs) < FAILED_THRESHOLD:
+        return [len(logs), 0]
+
+    times = [log.timestamp for log in logs[-FAILED_THRESHOLD:]]
     time_span = (max(times) - min(times)).seconds
 
-    return [attempts, time_span]
+    return [len(logs), time_span]
 
 
 def predict_attack(username):
@@ -121,30 +123,18 @@ def register():
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    username = request.form["username"]
+    password = request.form["password"]
 
-    blocked, remaining = is_blocked(username)
-    if blocked:
-        return f"BLOCKED:{remaining}", 403
+    recent_fails = LoginLog.query.filter_by(
+        username=username,
+        success=0
+    ).order_by(LoginLog.timestamp.desc()).limit(FAILED_THRESHOLD).all()
 
-    user = User.query.filter_by(username=username).first()
-
-    if not user:
-        save_log(username, 0)
-        return "NO_USER", 404
-
-    if user.password != password:
-        save_log(username, 0)
-
-        blocked, remaining = is_blocked(username)
-        if blocked:
-            return f"BLOCKED:{remaining}", 403
-
-        return "WRONG_PASSWORD", 401
-
-    save_log(username, 1)
-    return "SUCCESS", 200
+    if len(recent_fails) == FAILED_THRESHOLD:
+        delta = datetime.utcnow() - recent_fails[0].timestamp
+        if delta.seconds < BLOCK_MINUTES * 60:
+            return f"BLOCKED:{BLOCK_MINUTES*60 - delta.seconds}", 403200
 
 
 @app.route("/dashboard/<username>")
@@ -156,4 +146,5 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
