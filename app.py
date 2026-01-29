@@ -1,10 +1,8 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+from datetime import datetime
 import joblib
 import os
-
-print("DB URL FOUND:", bool(os.environ.get("DATABASE_URL")))
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -15,9 +13,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 model, features = joblib.load("model.joblib")
-
-FAILED_THRESHOLD = 3
-BLOCK_MINUTES = 1
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -45,15 +40,10 @@ def save_log(username, success):
 
 def extract_features(username):
     logs = LoginLog.query.filter_by(username=username).all()
-
     if not logs:
         return [0, 0]
-
-    attempts = len(logs)
     times = [log.timestamp for log in logs]
-    time_span = (max(times) - min(times)).seconds
-
-    return [attempts, time_span]
+    return [len(logs), (max(times) - min(times)).seconds]
 
 def predict_attack(username):
     try:
@@ -71,45 +61,43 @@ def register():
     if request.method == "GET":
         return render_template("register.html")
 
-    username = request.form["username"]
-    password = request.form["password"]
+    username = request.form.get("username")
+    password = request.form.get("password")
 
     if User.query.filter_by(username=username).first():
-        return "USER EXISTS"
+        return "EXISTS", 409
 
     user = User(username=username, password=password)
     db.session.add(user)
     db.session.commit()
 
-    return redirect("/")
+    return "CREATED", 201
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form["username"]
-    password = request.form["password"]
+    username = request.form.get("username")
+    password = request.form.get("password")
 
     if predict_attack(username):
-        return "ATTACK DETECTED"
+        return "ATTACK", 403
 
     user = User.query.filter_by(username=username).first()
 
     if not user:
         save_log(username, 0)
-        return "FAILED"
+        return "NO_USER", 404
 
-    if user.password == password:
-        save_log(username, 1)
-        return "SUCCESS"
-    else:
+    if user.password != password:
         save_log(username, 0)
-        return "FAILED"
+        return "WRONG_PASSWORD", 401
+
+    save_log(username, 1)
+    return "SUCCESS", 200
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
-    logs = LoginLog.query.filter_by(username=username).all()
-    return render_template("dashboard.html", username=username, logs=logs)
-    
+    return render_template("dashboard.html", username=username)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
