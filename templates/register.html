@@ -1,19 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>إنشاء حساب</title>
+<meta charset="UTF-8">
+<title>إنشاء حساب</title>
+<style>
+body {
+    font-family: Arial;
+    background: #f5f5f5;
+}
+.box {
+    width: 320px;
+    margin: 120px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+input, button {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+}
+</style>
 </head>
 
-<body style="text-align:center; margin-top:100px">
+<body>
+<div class="box">
+<h2>إنشاء حساب</h2>
 
-<h2>إنشاء حساب جديد</h2>
-
-<input id="username" placeholder="اسم المستخدم"><br><br>
-<input id="password" type="password" placeholder="كلمة المرور"><br><br>
-
+<input id="username" placeholder="اسم المستخدم">
+<input id="password" type="password" placeholder="كلمة المرور">
 <button onclick="register()">تسجيل</button>
 
-<p id="msg" style="color:red"></p>
+<p id="msg"></p>
+</div>
 
 <script>
 function register(){
@@ -21,20 +41,18 @@ function register(){
 
     fetch("/register", {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {"Content-Type":"application/x-www-form-urlencoded"},
         body: "username=" + username.value + "&password=" + password.value
     })
     .then(res => {
-        if (res.status === 201) {
-            msg.style.color = "green";
-            msg.innerText = "تم إنشاء الحساب بنجاح";
-            setTimeout(() => location.href = "/", 1500);
-        }
-        else if (res.status === 409) {
-            msg.innerText = "اسم المستخدم موجود مسبقًا";
-        }
-        else {
-            msg.innerText = "حدث خطأ";
+        if(res.status === 201){
+            msg.style.color="green";
+            msg.innerText="تم إنشاء الحساب بنجاح";
+            setTimeout(()=>location.href="/",1500);
+        } else if(res.status === 409){
+            msg.innerText="اسم المستخدم موجود مسبقًا";
+        } else {
+            msg.innerText="حدث خطأ";
         }
     });
 }
