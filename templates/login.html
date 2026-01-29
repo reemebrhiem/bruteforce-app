@@ -10,22 +10,37 @@ body {
     justify-content:center;
     align-items:center;
     height:100vh;
-    font-family:Arial;
+    font-family:Arial, sans-serif;
     background:#f5f5f5;
 }
 .box {
     width:320px;
     background:white;
-    padding:20px;
-    border-radius:8px;
+    padding:25px;
+    border-radius:10px;
     text-align:center;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+h2 {
+    margin-bottom:15px;
 }
 input, button {
     width:100%;
     padding:10px;
     margin:6px 0;
+    font-size:14px;
 }
-#msg { color:red; }
+button {
+    cursor:pointer;
+}
+button:disabled {
+    background:#ccc;
+    cursor:not-allowed;
+}
+#msg {
+    color:red;
+    margin-top:10px;
+}
 </style>
 </head>
 
@@ -34,34 +49,47 @@ input, button {
 <h2>تسجيل الدخول</h2>
 
 <form onsubmit="login(); return false;">
-    <input id="username" placeholder="اسم المستخدم">
-    <input id="password" type="password" placeholder="كلمة المرور">
-    <button type="submit">دخول</button>
+    <input id="username" placeholder="اسم المستخدم" required>
+    <input id="password" type="password" placeholder="كلمة المرور" required>
+    <button id="loginBtn" type="submit">دخول</button>
 </form>
 
-<button onclick="location.href='/register'">إنشاء حساب</button>
+<button id="registerBtn" onclick="location.href='/register'">إنشاء حساب</button>
+
 <div id="msg"></div>
 </div>
 
 <script>
 let blocked = false;
-let timerInterval;
+let timerInterval = null;
+
+window.addEventListener("keydown", function(e){
+    if(blocked && (e.key === "F5" || (e.ctrlKey && e.key === "r"))){
+        e.preventDefault();
+    }
+});
+window.addEventListener("beforeunload", function(e){
+    if(blocked){
+        e.preventDefault();
+        e.returnValue = "";
+    }
+});
 
 function startTimer(seconds){
     const msg = document.getElementById("msg");
-    const loginBtn = document.querySelector("button[type='submit']");
-    const regBtn = document.querySelector("button:not([type='submit'])");
+    const loginBtn = document.getElementById("loginBtn");
+    const regBtn = document.getElementById("registerBtn");
 
     blocked = true;
     loginBtn.disabled = true;
     regBtn.disabled = true;
 
     let s = seconds;
-    msg.innerText = "تم اكتشاف هجوم قوة غاشمة 🚨 حاول بعد " + s + " ثانية";
+    msg.innerText = " تم اكتشاف هجوم قوة غاشمة، حاول بعد " + s + " ثانية";
 
     timerInterval = setInterval(() => {
         s--;
-        msg.innerText = "تم اكتشاف هجوم قوة غاشمة 🚨 حاول بعد " + s + " ثانية";
+        msg.innerText = " تم اكتشاف هجوم قوة غاشمة، حاول بعد " + s + " ثانية";
 
         if(s <= 0){
             clearInterval(timerInterval);
@@ -80,14 +108,16 @@ function login(){
     const password = document.getElementById("password").value;
     const msg = document.getElementById("msg");
 
+    msg.innerText = "";
+
     fetch("/login",{
         method:"POST",
         headers:{"Content-Type":"application/x-www-form-urlencoded"},
-        body:"username="+username+"&password="+password
+        body:"username="+encodeURIComponent(username)+"&password="+encodeURIComponent(password)
     })
     .then(res => res.text().then(t => ({status:res.status, text:t})))
     .then(r => {
-        if(r.status === 200){
+        if(r.status === 200 && r.text === "SUCCESS"){
             location.href="/dashboard/"+username;
         }
         else if(r.text.startsWith("BLOCKED")){
@@ -95,14 +125,19 @@ function login(){
             startTimer(seconds);
         }
         else if(r.text === "NO_USER"){
-            msg.innerText="الحساب غير موجود";
+            msg.innerText=" الحساب غير موجود";
         }
         else if(r.text === "WRONG_PASSWORD"){
-            msg.innerText="كلمة المرور غير صحيحة";
+            msg.innerText=" كلمة المرور غير صحيحة";
         }
+        else {
+            msg.innerText=" حدث خطأ غير متوقع";
+        }
+    })
+    .catch(()=>{
+        msg.innerText=" خطأ في الاتصال بالسيرفر";
     });
 }
 </script>
 </body>
 </html>
-
