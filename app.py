@@ -44,19 +44,22 @@ def save_log(username, success):
 
 def is_blocked(username):
     now = datetime.utcnow()
-    logs = LoginLog.query.filter_by(username=username, success=0).order_by(LoginLog.timestamp).all()
+
+    logs = LoginLog.query.filter_by(
+        username=username,
+        success=0
+    ).order_by(LoginLog.timestamp.desc()).all()
 
     if len(logs) < FAILED_THRESHOLD:
         return False, 0
 
-    last_fail = logs[-1].timestamp
-    diff = (now - last_fail).seconds
+    first_block_time = logs[FAILED_THRESHOLD - 1].timestamp
+    diff = (now - first_block_time).seconds
 
     if diff < BLOCK_SECONDS:
         return True, BLOCK_SECONDS - diff
 
     return False, 0
-
 
 def extract_features(username):
     logs = LoginLog.query.filter_by(username=username).all()
@@ -80,7 +83,18 @@ def predict_attack(username):
 
 @app.route("/")
 def login_page():
-    return render_template("login.html")
+    username = request.args.get("user")
+    blocked = False
+    remaining = 0
+
+    if username:
+        blocked, remaining = is_blocked(username)
+
+    return render_template(
+        "login.html",
+        blocked=blocked,
+        remaining=remaining
+    )
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -142,3 +156,4 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
