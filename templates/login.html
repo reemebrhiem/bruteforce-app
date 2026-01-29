@@ -44,34 +44,65 @@ input, button {
 </div>
 
 <script>
+let blocked = false;
+let timerInterval;
+
+function startTimer(seconds){
+    const msg = document.getElementById("msg");
+    const loginBtn = document.querySelector("button[type='submit']");
+    const regBtn = document.querySelector("button:not([type='submit'])");
+
+    blocked = true;
+    loginBtn.disabled = true;
+    regBtn.disabled = true;
+
+    let s = seconds;
+    msg.innerText = "تم اكتشاف هجوم قوة غاشمة 🚨 حاول بعد " + s + " ثانية";
+
+    timerInterval = setInterval(() => {
+        s--;
+        msg.innerText = "تم اكتشاف هجوم قوة غاشمة 🚨 حاول بعد " + s + " ثانية";
+
+        if(s <= 0){
+            clearInterval(timerInterval);
+            blocked = false;
+            loginBtn.disabled = false;
+            regBtn.disabled = false;
+            msg.innerText = "";
+        }
+    },1000);
+}
+
 function login(){
-    const username=document.getElementById("username").value;
-    const password=document.getElementById("password").value;
-    const msg=document.getElementById("msg");
+    if(blocked) return;
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+    const msg = document.getElementById("msg");
 
     fetch("/login",{
         method:"POST",
         headers:{"Content-Type":"application/x-www-form-urlencoded"},
         body:"username="+username+"&password="+password
     })
-    .then(res=>{
-        if(res.status===200) return "SUCCESS";
-        if(res.status===404) return "NO_USER";
-        if(res.status===401) return "WRONG_PASSWORD";
-        if(res.status===403) return "ATTACK";
-    })
-    .then(result=>{
-        if(result==="SUCCESS"){
+    .then(res => res.text().then(t => ({status:res.status, text:t})))
+    .then(r => {
+        if(r.status === 200){
             location.href="/dashboard/"+username;
-        } else if(result==="NO_USER"){
+        }
+        else if(r.text.startsWith("BLOCKED")){
+            const seconds = parseInt(r.text.split(":")[1]);
+            startTimer(seconds);
+        }
+        else if(r.text === "NO_USER"){
             msg.innerText="الحساب غير موجود";
-        } else if(result==="WRONG_PASSWORD"){
+        }
+        else if(r.text === "WRONG_PASSWORD"){
             msg.innerText="كلمة المرور غير صحيحة";
-        } else {
-            msg.innerText="تم اكتشاف هجوم قوة غاشمة";
         }
     });
 }
 </script>
 </body>
 </html>
+
