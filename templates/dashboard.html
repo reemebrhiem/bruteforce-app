@@ -1,20 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
+<meta charset="UTF-8">
 <title>لوحة التحكم</title>
+
 <style>
 body{
     font-family:Arial;
-    background:#f5f5f5;
+    background:#f4f6f8;
+    padding:40px;
+}
+.box{
+    background:white;
+    padding:20px;
+    border-radius:8px;
+    max-width:700px;
+    margin:auto;
+}
+h2{ color:#333; }
+.stat{
+    margin:8px 0;
+    font-size:15px;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+th,td{
+    border:1px solid #ddd;
+    padding:8px;
     text-align:center;
-    margin-top:120px;
+    font-size:13px;
+}
+th{
+    background:#eee;
 }
 </style>
 </head>
 
 <body>
-<h1>مرحبًا {{ username }}</h1>
-<p>تم تسجيل الدخول بنجاح </p>
+<div class="box">
+    <h2>مرحبًا {{ username }}</h2>
+
+    <div class="stat"> عدد المحاولات: {{ total }}</div>
+    <div class="stat"> محاولات فاشلة: {{ failed }}</div>
+    <div class="stat"> محاولات ناجحة: {{ success }}</div>
+    <div class="stat"> آخر IP: {{ last_ip }}</div>
+
+    <h3>آخر محاولات الدخول</h3>
+
+    <table>
+        <tr>
+            <th>الوقت</th>
+            <th>النتيجة</th>
+            <th>IP</th>
+        </tr>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.timestamp }}</td>
+            <td>{{ "نجاح" if log.success == 1 else "فشل" }}</td>
+            <td>{{ log.ip }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
 </body>
 </html>
-
