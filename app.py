@@ -99,9 +99,25 @@ def login():
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
-    logs = LoginLog.query.filter_by(username=username).all()
-    return render_template("dashboard.html", username=username, logs=logs)
+    logs = LoginLog.query.filter_by(username=username).order_by(LoginLog.timestamp.desc()).all()
+
+    total_attempts = len(logs)
+    failed_attempts = len([l for l in logs if l.success == 0])
+    success_attempts = len([l for l in logs if l.success == 1])
+
+    last_ip = logs[0].ip if logs else "N/A"
+
+    return render_template(
+        "dashboard.html",
+        username=username,
+        total=total_attempts,
+        failed=failed_attempts,
+        success=success_attempts,
+        last_ip=last_ip,
+        logs=logs[:10]    
+    )
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
