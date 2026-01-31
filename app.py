@@ -80,25 +80,34 @@ def register():
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form["username"]
-    password = request.form["password"]
+    username = request.form.get("username", "")
+    password = request.form.get("password", "")
 
-    blocked, seconds = is_blocked(username)
-    if blocked:
-        return f"BLOCKED:{seconds}", 403
+    user_agent = request.headers.get("User-Agent", "").lower()
+    is_browser = "mozilla" in user_agent or "chrome" in user_agent
+
+    # تحقق من البلوك
+    if predict_attack(username):
+        return "BLOCKED", 403
 
     user = User.query.filter_by(username=username).first()
 
     if not user:
         save_log(username, 0)
-        return "NO_USER"
+        return "FAILED", 401
 
     if user.password == password:
+        if not is_browser:
+            # Hydra / curl / bots
+            save_log(username, 0)
+            return "FAILED", 401
+
         save_log(username, 1)
-        return "SUCCESS"
+        return "SUCCESS", 200
+
     else:
         save_log(username, 0)
-        return "WRONG_PASSWORD"
+        return "FAILED", 401
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
@@ -107,6 +116,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
