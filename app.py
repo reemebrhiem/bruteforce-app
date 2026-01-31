@@ -86,7 +86,6 @@ def login():
     user_agent = request.headers.get("User-Agent", "").lower()
     is_browser = "mozilla" in user_agent or "chrome" in user_agent
 
-    # تحقق من البلوك
     if predict_attack(username):
         return "BLOCKED", 403
 
@@ -116,6 +115,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
