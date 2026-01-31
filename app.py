@@ -17,14 +17,22 @@ db = SQLAlchemy(app)
 FAILED_THRESHOLD = 3
 BLOCK_MINUTES = 1
 
-def is_blocked(username):
+def block_remaining_seconds(username):
     since = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
     fails = LoginLog.query.filter(
         LoginLog.username == username,
         LoginLog.success == 0,
         LoginLog.timestamp >= since
-    ).count()
-    return fails >= FAILED_THRESHOLD
+    ).order_by(LoginLog.timestamp.asc()).all()
+
+    if len(fails) < FAILED_THRESHOLD:
+        return 0
+
+    first_fail = fails[0].timestamp
+    unblock_time = first_fail + timedelta(minutes=BLOCK_MINUTES)
+    remaining = (unblock_time - datetime.utcnow()).total_seconds()
+
+    return max(0, int(remaining))
     
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -96,9 +104,10 @@ def login():
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
-    if is_blocked(username):
+    remaining = block_remaining_seconds(username)
+    if remaining > 0:
         save_log(username, 0)
-        return "BLOCKED"
+        return f"BLOCKED:{remaining}"
 
     user = User.query.filter_by(username=username).first()
 
@@ -120,6 +129,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
