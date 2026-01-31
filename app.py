@@ -33,13 +33,17 @@ with app.app_context():
     db.create_all()
 
 def save_log(username, success):
-    log = LoginLog(
-        username=username,
-        success=success,
-        ip=request.remote_addr
-    )
-    db.session.add(log)
-    db.session.commit()
+    try:
+        log = LoginLog(
+            username=username,
+            success=success,
+            ip=request.remote_addr
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("LOG ERROR:", e)
 
 def is_blocked(username):
     window = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
@@ -115,6 +119,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
