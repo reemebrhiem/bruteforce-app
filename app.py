@@ -17,6 +17,15 @@ db = SQLAlchemy(app)
 FAILED_THRESHOLD = 3
 BLOCK_MINUTES = 1
 
+def is_blocked(username):
+    since = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
+    fails = LoginLog.query.filter(
+        LoginLog.username == username,
+        LoginLog.success == 0,
+        LoginLog.timestamp >= since
+    ).count()
+    return fails >= FAILED_THRESHOLD
+    
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -87,23 +96,22 @@ def login():
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
-    if predict_attack(username):
+    if is_blocked(username):
         save_log(username, 0)
-        return "BLOCKED", 403
+        return "BLOCKED"
 
     user = User.query.filter_by(username=username).first()
 
     if not user:
         save_log(username, 0)
-        return "FAILED", 401
+        return "FAILED"
 
     if user.password == password:
         save_log(username, 1)
-
-        return "OK", 200
+        return "SUCCESS"
     else:
         save_log(username, 0)
-        return "FAILED", 401
+        return "FAILED"
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
@@ -112,6 +120,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
