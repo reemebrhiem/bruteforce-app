@@ -87,10 +87,8 @@ def login():
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
-    user_agent = request.headers.get("User-Agent", "").lower()
-    is_browser = "mozilla" in user_agent or "chrome" in user_agent
-
     if predict_attack(username):
+        save_log(username, 0)
         return "BLOCKED", 403
 
     user = User.query.filter_by(username=username).first()
@@ -100,14 +98,9 @@ def login():
         return "FAILED", 401
 
     if user.password == password:
-        if not is_browser:
-            # Hydra / curl / bots
-            save_log(username, 0)
-            return "FAILED", 401
-
         save_log(username, 1)
-        return "SUCCESS", 200
 
+        return "OK", 200
     else:
         save_log(username, 0)
         return "FAILED", 401
@@ -119,6 +112,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
