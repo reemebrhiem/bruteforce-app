@@ -101,28 +101,26 @@ def register():
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form["username"]
-    password = request.form["password"]
+    try:
+        username = request.form.get("username")
+        password = request.form.get("password")
 
-    if is_blocked(username):
-        remaining = get_remaining_block_time(username)
-        return f"BLOCKED:{remaining}"
+        if not username or not password:
+            return "ERROR"
 
-    user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(username=username).first()
 
-    if not user:
-        save_log(username, 0)
-        return "NO_USER"
+        if not user:
+            return "NO_USER"
 
-    if user.password != password:
-        save_log(username, 0)
-        if is_attack(username):
-            block_user(username)
-            return "BLOCKED:60"
-        return "WRONG_PASSWORD"
+        if user.password != password:
+            return "WRONG_PASSWORD"
 
-    save_log(username, 1)
-    return "SUCCESS"
+        return "SUCCESS"
+
+    except Exception as e:
+        print("LOGIN ERROR:", e)
+        return "ERROR"
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
@@ -131,6 +129,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
