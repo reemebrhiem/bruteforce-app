@@ -54,7 +54,7 @@ def save_log(username, success):
         log = LoginLog(
             username=username,
             success=success,
-            ip=request.remote_addr
+            ip = request.headers.get("X-Forwarded-For", "").split(",")[0] or request.remote_addr
         )
         db.session.add(log)
         db.session.commit()
@@ -144,6 +144,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
