@@ -64,17 +64,21 @@ def save_log(username, success):
 
 def is_blocked(username):
     window = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
-    recent = LoginLog.query.filter(
-        LoginLog.username == username,
-        LoginLog.timestamp >= window,
-        LoginLog.success == 0
-    ).count()
 
-    if recent >= FAILED_THRESHOLD:
-        last_fail = LoginLog.query.filter_by(username=username, success=0)\
-            .order_by(LoginLog.timestamp.desc()).first()
-        remaining = 60 - int((datetime.utcnow() - last_fail.timestamp).total_seconds())
-        return True, max(remaining, 0)
+    fails = LoginLog.query.filter(
+        LoginLog.username == username,
+        LoginLog.success == 0,
+        LoginLog.timestamp >= window
+    ).order_by(LoginLog.timestamp.asc()).all()
+
+    if len(fails) < FAILED_THRESHOLD:
+        return False, 0
+
+    first_fail = fails[0].timestamp
+    unblock_time = first_fail + timedelta(minutes=BLOCK_MINUTES)
+    remaining = int((unblock_time - datetime.utcnow()).total_seconds())
+
+    return True, max(remaining, 0)
 
     return False, 0
 
@@ -140,6 +144,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
