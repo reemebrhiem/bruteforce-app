@@ -117,22 +117,22 @@ function login(){
     })
     .then(res => res.text().then(t => ({status:res.status, text:t})))
     .then(r => {
-    if (r.text === "SUCCESS") {
-        location.href = "/dashboard/" + username;
-    }
-    else if (r.text.startsWith("BLOCKED")) {
-        const seconds = parseInt(r.text.split(":")[1]);
-        startTimer(seconds);
-    }
-    else if (r.text === "NO_USER") {
-        msg.innerText = "الحساب غير موجود";
-    }
-    else if (r.text === "WRONG_PASSWORD") {
-        msg.innerText = "كلمة المرور غير صحيحة";
-    }
-    else {
-        msg.innerText = "حدث خطأ";
-    }
+        if (r.text === "SUCCESS") {
+            location.href = "/dashboard/" + username;
+        }
+        else if (r.text.startsWith("BLOCKED")) {
+            const seconds = parseInt(r.text.split(":")[1]);
+            startTimer(seconds);
+        }
+        else if (r.text === "NO_USER") {
+            msg.innerText = "الحساب غير موجود";
+        }
+        else if (r.text === "WRONG_PASSWORD") {
+            msg.innerText = "كلمة المرور غير صحيحة";
+        }
+        else {
+            msg.innerText = "حدث خطأ";
+        }
 });
     .catch(()=>{
         msg.innerText=" خطأ في الاتصال بالسيرفر";
@@ -141,4 +141,5 @@ function login(){
 </script>
 </body>
 </html>
+
 
