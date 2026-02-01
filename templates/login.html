@@ -122,6 +122,10 @@ fetch("/login", {
     if (text === "SUCCESS") {
         location.href = "/dashboard/" + username;
     }
+    else if (text.startsWith("BLOCKED")) {
+        const seconds = parseInt(text.split(":")[1]);
+        startTimer(seconds);
+    }
     else if (text === "NO_USER") {
         msg.innerText = "الحساب غير موجود";
     }
@@ -129,7 +133,7 @@ fetch("/login", {
         msg.innerText = "كلمة المرور غير صحيحة";
     }
     else {
-        msg.innerText = "حدث خطأ";
+        msg.innerText = "حدث خطأ غير متوقع";
     }
 })
 .catch(() => {
@@ -139,6 +143,7 @@ fetch("/login", {
 </script>
 </body>
 </html>
+
 
 
 
