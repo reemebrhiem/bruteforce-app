@@ -110,36 +110,39 @@ function login(){
 
     msg.innerText = "";
 
-    fetch("/login",{
-        method:"POST",
-        headers:{"Content-Type":"application/x-www-form-urlencoded"},
-        body:"username="+encodeURIComponent(username)+"&password="+encodeURIComponent(password)
-    })
-    .then(res => res.text().then(t => ({status:res.status, text:t})))
-    .then(r => {
-        if (r.text === "SUCCESS") {
-            location.href = "/dashboard/" + username;
-        }
-        else if (r.text.startsWith("BLOCKED")) {
-            const seconds = parseInt(r.text.split(":")[1]);
-            startTimer(seconds);
-        }
-        else if (r.text === "NO_USER") {
-            msg.innerText = "الحساب غير موجود";
-        }
-        else if (r.text === "WRONG_PASSWORD") {
-            msg.innerText = "كلمة المرور غير صحيحة";
-        }
-        else {
-            msg.innerText = "حدث خطأ";
-        }
+fetch("/login", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: "username=" + username + "&password=" + password
+})
+.then(res => res.text())
+.then(text => {
+    if (text === "SUCCESS") {
+        location.href = "/dashboard/" + username;
+    }
+    else if (text.startsWith("BLOCKED")) {
+        const seconds = parseInt(text.split(":")[1]);
+        startTimer(seconds);
+    }
+    else if (text === "NO_USER") {
+        msg.innerText = "الحساب غير موجود";
+    }
+    else if (text === "WRONG_PASSWORD") {
+        msg.innerText = "كلمة المرور غير صحيحة";
+    }
+    else {
+        msg.innerText = "حدث خطأ";
+    }
+})
+.catch(() => {
+    msg.innerText = "خطأ في الاتصال بالسيرفر";
 });
-    .catch(()=>{
-        msg.innerText=" خطأ في الاتصال بالسيرفر";
-    });
 }
 </script>
 </body>
 </html>
+
 
 
