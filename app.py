@@ -112,9 +112,9 @@ def login():
         if not username or not password:
             return "ERROR"
 
-        blocked, remaining = is_blocked(username)
+        blocked, seconds = is_blocked(username)
         if blocked:
-            return f"BLOCKED:{remaining}"
+            return f"BLOCKED:{seconds}"
 
         user = User.query.filter_by(username=username).first()
 
@@ -124,11 +124,6 @@ def login():
 
         if user.password != password:
             save_log(username, 0)
-
-            blocked, remaining = is_blocked(username)
-            if blocked:
-                return f"BLOCKED:{remaining}"
-
             return "WRONG_PASSWORD"
 
         save_log(username, 1)
@@ -137,6 +132,7 @@ def login():
     except Exception as e:
         print("LOGIN ERROR:", e)
         return "ERROR"
+        
 @app.route("/dashboard/<username>")
 def dashboard(username):
     return render_template("dashboard.html", username=username)
@@ -144,6 +140,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
