@@ -16,6 +16,7 @@ db = SQLAlchemy(app)
 
 FAILED_THRESHOLD = 3
 BLOCK_MINUTES = 1
+MAX_LOGS = 80
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -25,7 +26,7 @@ class User(db.Model):
 class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50))
-    success = db.Column(db.Integer)  # 1 نجاح / 0 فشل
+    success = db.Column(db.Integer)  # 1 = نجاح | 0 = فشل
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip = db.Column(db.String(50))
 
@@ -33,28 +34,27 @@ with app.app_context():
     db.create_all()
 
 def cleanup_logs():
-    MAX_LOGS = 80
     count = LoginLog.query.count()
-
-    if count >= MAX_LOGS:
-        to_delete = count - MAX_LOGS + 1
+    if count > MAX_LOGS:
+        to_delete = count - MAX_LOGS
         old_logs = LoginLog.query.order_by(LoginLog.timestamp.asc()).limit(to_delete).all()
         for log in old_logs:
             db.session.delete(log)
         db.session.commit()
 
+def get_client_ip():
+    ip = request.headers.get("X-Forwarded-For", "")
+    if ip:
+        return ip.split(",")[0]
+    return request.remote_addr
+
 def save_log(username, success):
     try:
         cleanup_logs()
-
-        ip_address = request.headers.get("X-Forwarded-For", "").split(",")[0]
-        if not ip_address:
-            ip_address = request.remote_addr
-
         log = LoginLog(
             username=username,
             success=success,
-            ip=ip_address
+            ip=get_client_ip()
         )
         db.session.add(log)
         db.session.commit()
@@ -79,7 +79,7 @@ def is_blocked(username):
     remaining = int((unblock_time - datetime.utcnow()).total_seconds())
 
     return True, max(remaining, 0)
-    
+
 @app.route("/")
 def login_page():
     return render_template("login.html")
@@ -89,8 +89,11 @@ def register():
     if request.method == "GET":
         return render_template("register.html")
 
-    username = request.form["username"]
-    password = request.form["password"]
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    if not username or not password:
+        return "ERROR", 400
 
     if User.query.filter_by(username=username).first():
         return "EXISTS", 409
@@ -138,4 +141,3 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
