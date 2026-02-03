@@ -1,18 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
-    <meta charset="UTF-8">
-    <title>إنشاء حساب</title>
-</head>
-<body style="text-align:center;margin-top:100px">
+<meta charset="UTF-8">
+<title>إنشاء حساب</title>
 
+<style>
+*{
+    box-sizing:border-box;
+}
+
+body{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    margin:0;
+    font-family:Arial;
+    background: radial-gradient(circle at top, #111, #000);
+}
+
+.box{
+    width:320px;
+    padding:30px 25px;
+    text-align:center;
+    border:2px solid white;
+    border-radius:12px;
+    background:transparent;
+}
+
+h2{
+    color:white;
+    margin-bottom:20px;
+    font-weight:normal;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    margin:10px 0;
+    background:transparent;
+    border:2px solid white;
+    border-radius:6px;
+    color:white;
+    text-align:center;
+    font-size:14px;
+    outline:none;
+}
+
+input::placeholder{
+    color:#ccc;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    margin-top:12px;
+    background:transparent;
+    border:2px solid white;
+    color:white;
+    border-radius:6px;
+    font-size:15px;
+    cursor:pointer;
+}
+
+#msg{
+    margin-top:12px;
+    font-size:14px;
+    color:#ff6b6b;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
 <h2>إنشاء حساب</h2>
 
-<input id="username" placeholder="اسم المستخدم"><br><br>
-<input id="password" type="password" placeholder="كلمة المرور"><br><br>
+<input id="username" placeholder="اسم المستخدم">
+<input id="password" type="password" placeholder="كلمة المرور">
 
 <button onclick="register()">تسجيل</button>
 <p id="msg"></p>
+</div>
 
 <script>
 function register(){
@@ -26,7 +95,7 @@ function register(){
     .then(res => res.text().then(t => ({status:res.status,text:t})))
     .then(r=>{
         if(r.status===201){
-            msg.style.color="green";
+            msg.style.color="lightgreen";
             msg.innerText="تم إنشاء الحساب بنجاح";
             setTimeout(()=>location.href="/",1500);
         }else if(r.status===409){
@@ -39,5 +108,6 @@ function register(){
     })
 }
 </script>
+
 </body>
 </html>
