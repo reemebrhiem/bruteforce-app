@@ -15,7 +15,7 @@ body{
     align-items:center;
     height:100vh;
     margin:0;
-    font-family:Arial;
+    font-family:Arial, sans-serif;
     background: radial-gradient(circle at top, #111, #000);
 }
 
@@ -63,6 +63,11 @@ button{
     cursor:pointer;
 }
 
+button:hover{
+    background:white;
+    color:black;
+}
+
 #msg{
     margin-top:12px;
     font-size:14px;
@@ -74,13 +79,13 @@ button{
 <body>
 
 <div class="box">
-<h2>إنشاء حساب</h2>
+    <h2>إنشاء حساب</h2>
 
-<input id="username" placeholder="اسم المستخدم">
-<input id="password" type="password" placeholder="كلمة المرور">
+    <input id="username" placeholder="اسم المستخدم">
+    <input id="password" type="password" placeholder="كلمة المرور">
 
-<button onclick="register()">تسجيل</button>
-<p id="msg"></p>
+    <button onclick="register()">تسجيل</button>
+    <p id="msg"></p>
 </div>
 
 <script>
@@ -100,8 +105,6 @@ function register(){
             setTimeout(()=>location.href="/",1500);
         }else if(r.status===409){
             msg.innerText="اسم المستخدم موجود مسبقًا";
-        }else if(r.text.startsWith("BLOCKED")){
-            msg.innerText="محظور مؤقتًا، حاول لاحقًا";
         }else{
             msg.innerText="حدث خطأ";
         }
