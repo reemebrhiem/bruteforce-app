@@ -47,6 +47,17 @@ def get_client_ip():
     if ip:
         return ip.split(",")[0]
     return request.remote_addr
+    
+def is_automated_tool():
+    ua = request.headers.get("User-Agent", "").lower()
+    return (
+        ua == "" or
+        "hydra" in ua or
+        "curl" in ua or
+        "burp" in ua or
+        "sqlmap" in ua
+    )
+
 
 def save_log(username, success):
     try:
@@ -124,6 +135,10 @@ def login():
             return "NO_USER"
 
         if user.password != password:
+           save_log(username, 0)
+           return "WRONG_PASSWORD"
+
+        if is_automated_tool():
             save_log(username, 0)
             return "WRONG_PASSWORD"
 
@@ -141,3 +156,4 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
