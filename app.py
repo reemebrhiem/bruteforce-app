@@ -176,32 +176,54 @@ def login():
 
     if not username or not password:
         save_log("unknown", 0)
-        return "ERROR"
+        return jsonify({"status": "error", "message": "الرجاء ملء جميع الحقول"}), 400
 
     blocked, seconds = is_blocked(username)
     if blocked:
-       save_log(username, 0)
-       return f"BLOCKED:{seconds}"
+        save_log(username, 0)
+        return jsonify({
+            "status": "blocked",
+            "message": f"تم اكتشاف هجوم قوة غاشمة. حاول مرة أخرى بعد {seconds} ثانية",
+            "seconds": seconds
+        }), 429
 
     is_attack_ml, ml_confidence = predict_with_ml(username, client_ip)
     if is_attack_ml and ml_confidence >= ML_THRESHOLD:
         save_log(username, 0)
-        return f"BLOCKED:60"
+        return jsonify({
+            "status": "blocked",
+            "message": f"تم اكتشاف نشاط مشبوه (ثقة النموذج: {ml_confidence:.0%}). الحظر لمدة 60 ثانية",
+            "seconds": 60
+        }), 429
 
     if is_automated_tool():
         save_log(username, 0)
-        return "WRONG_PASSWORD"
+        return jsonify({
+            "status": "wrong_password",
+            "message": "تم رفض الطلب بسبب استخدام أدوات آلية"
+        }), 403
 
+    user = User.query.filter_by(username=username).first()
     if not user:
         save_log(username, 0)
-        return "NO_USER"
+        return jsonify({
+            "status": "no_user",
+            "message": "اسم المستخدم غير صحيح"
+        }), 404
 
     if user.password != password:
         save_log(username, 0)
-        return "WRONG_PASSWORD"
+        return jsonify({
+            "status": "wrong_password",
+            "message": "كلمة المرور غير صحيحة"
+        }), 401
 
     save_log(username, 1)
-    return "SUCCESS"
+    return jsonify({
+        "status": "success",
+        "message": "تم تسجيل الدخول بنجاح",
+        "username": username
+    }), 200
 
 
 @app.route("/dashboard/<username>")
@@ -212,6 +234,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
