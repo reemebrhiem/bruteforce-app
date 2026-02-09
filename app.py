@@ -67,8 +67,8 @@ def save_log(username, success):
         success=success,
         ip=get_client_ip()
    )
-        db.session.add(log)
-        db.session.commit()
+     db.session.add(log)
+     db.session.commit()
 
 def is_blocked(username):
     window = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
@@ -212,6 +212,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
