@@ -1,22 +1,31 @@
+Reem Ebrahem., [21/08/47 10:17 م]
 from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import os
 import joblib
+import numpy as np
 
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-model, features = joblib.load("model.joblib")
+try:
+    model, features_list = joblib.load("model.joblib")
+    print(" تم تحميل نموذج التعلم الآلي بنجاح")
+except Exception as e:
+    print(f"  تحذير: لم يتم تحميل model.joblib: {e}")
+    model = None
+    features_list = []
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-FAILED_THRESHOLD = 3
-BLOCK_MINUTES = 1
-MAX_LOGS = 80
+FAILED_THRESHOLD = 3    
+BLOCK_MINUTES = 1         
+MAX_LOGS = 80             
+ML_THRESHOLD = 0.7        
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -26,12 +35,14 @@ class User(db.Model):
 class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50))
-    success = db.Column(db.Integer)  
+    success = db.Column(db.Integer)  # 1 = نجاح | 0 = فشل
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip = db.Column(db.String(50))
 
 with app.app_context():
     db.create_all()
+    print(" قاعدة البيانات جاهزة")
+
 
 def cleanup_logs():
     count = LoginLog.query.count()
@@ -41,6 +52,7 @@ def cleanup_logs():
         for log in old_logs:
             db.session.delete(log)
         db.session.commit()
+        print(f" تم تنظيف {to_delete} سجل قديم")
 
 def get_client_ip():
     ip = request.headers.get("X-Forwarded-For", "")
@@ -50,17 +62,12 @@ def get_client_ip():
     
 def is_automated_tool():
     ua = request.headers.get("User-Agent", "").lower()
-    return (
-        ua == "" or
-        "hydra" in ua or
-        "curl" in ua or
-        "burp" in ua or
-        "sqlmap" in ua
-    )
+    automated_keywords = ["hydra", "curl", "burp", "sqlmap", "wget", "python", "requests", "attack"]
+    return ua == "" or any(keyword in ua for keyword in automated_keywords)
 
 def save_log(username, success):
     try:
-        cleanup_logs()
+        cleanup_logs()    
         log = LoginLog(
             username=username,
             success=success,
@@ -68,9 +75,10 @@ def save_log(username, success):
         )
         db.session.add(log)
         db.session.commit()
+        print(f" سجل دخول: {username} - {'نجاح' if success == 1 else 'فشل'}")
     except Exception as e:
         db.session.rollback()
-        print("LOG ERROR:", e)
+        print(f" خطأ في حفظ السجل: {e}")
 
 def is_blocked(username):
     window = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
@@ -90,6 +98,61 @@ def is_blocked(username):
 
     return True, max(remaining, 0)
 
+def extract_features(username, ip_address):
+now = datetime.utcnow()
+    
+    five_min_ago = now - timedelta(minutes=5)
+    failed_user_5min = LoginLog.query.filter(
+        LoginLog.username == username,
+        LoginLog.success == 0,
+        LoginLog.timestamp >= five_min_ago,
+        LoginLog.timestamp < now
+    ).count()
+    
+    one_hour_ago = now - timedelta(hours=1)
+    failed_ip_1h = LoginLog.query.filter(
+        LoginLog.ip == ip_address,
+        LoginLog.success == 0,
+        LoginLog.timestamp >= one_hour_ago,
+        LoginLog.timestamp < now
+    ).count()
+    
+    one_day_ago = now - timedelta(hours=24)
+    unique_ips_query = LoginLog.query.filter(
+        LoginLog.username == username,
+        LoginLog.timestamp >= one_day_ago,
+        LoginLog.timestamp < now
+    ).with_entities(LoginLog.ip).distinct()
+    unique_ips_24h = unique_ips_query.count()
+    
+    hour_of_day = now.hour
+    
+    is_night = 1 if hour_of_day >= 23 or hour_of_day <= 4 else 0
+    
+    return [failed_user_5min, failed_ip_1h, unique_ips_24h, hour_of_day, is_night]
+
+def predict_with_ml(username, ip_address):
+    if model is None:
+        print("  النموذج غير متاح، تخطي التنبؤ")
+        return False, 0.0
+    
+    try:
+        features = extract_features(username, ip_address)
+        
+        X = np.array(features).reshape(1, -1).astype(float)
+        
+        prediction = model.predict(X)[0]
+        probability = model.predict_proba(X)[0][1] if hasattr(model, 'predict_proba') else 1.0
+        
+        print(f" تنبؤ ML: {'هجوم' if prediction == 1 else 'عادي'} - ثقة: {probability:.2%}")
+        
+        return prediction == 1, probability
+        
+    except Exception as e:
+        print(f" خطأ في تنبؤ ML: {e}")
+        return False, 0.0
+
+
 @app.route("/")
 def login_page():
     return render_template("login.html")
@@ -99,11 +162,14 @@ def register():
     if request.method == "GET":
         return render_template("register.html")
 
-    username = request.form.get("username")
-    password = request.form.get("password")
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
 
     if not username or not password:
         return "ERROR", 400
+    
+    if len(username) < 3 or len(password) < 3:
+        return "INVALID", 400
 
     if User.query.filter_by(username=username).first():
         return "EXISTS", 409
@@ -111,14 +177,19 @@ def register():
     user = User(username=username, password=password)
     db.session.add(user)
     db.session.commit()
+    
+    save_log(username, 1)
 
     return "CREATED", 201
 
 @app.route("/login", methods=["POST"])
 def login():
     try:
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        client_ip = get_client_ip()
+
+        print(f" محاولة دخول: {username} من {client_ip}")
 
         if not username or not password:
             save_log("unknown", 0)
@@ -131,30 +202,62 @@ def login():
 
         user = User.query.filter_by(username=username).first()
 
+        is_attack_ml, ml_confidence = predict_with_ml(username, client_ip)
+
+        if is_attack_ml and ml_confidence >= ML_THRESHOLD:
+            print(f" ML كشف هجوم! الثقة: {ml_confidence:.2%}")
+            save_log(username, 0)
+            return f"BLOCKED:60"
+
+        if is_automated_tool():
+            print(" كشف أداة آلية!")
+            save_log(username, 0)
+            return "WRONG_PASSWORD"
+
         if not user:
             save_log(username, 0)
             return "NO_USER"
 
         if user.password != password:
-           save_log(username, 0)
-           return "WRONG_PASSWORD"
-
-        if is_automated_tool():
             save_log(username, 0)
             return "WRONG_PASSWORD"
 
         save_log(username, 1)
+        print(f" دخول ناجح: {username}")
         return "SUCCESS"
 
     except Exception as e:
-        print("LOGIN ERROR:", e)
+        print(f" خطأ في تسجيل الدخول: {e}")
+        save_log("system_error", 0)
         return "ERROR"
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
     return render_template("dashboard.html", username=username)
 
+@app.route("/stats")
+def stats():
+    total_logs = LoginLog.query.count()
+    successful_logs = LoginLog.query.filter_by(success=1).count()
+    failed_logs = LoginLog.query.filter_by(success=0).count()
+    recent_attacks = LoginLog.query.filter(
+        LoginLog.timestamp >= datetime.utcnow() - timedelta(hours=1),
+        LoginLog.success == 0
+    ).count()
+    
+    stats_data = {
+        "total_logs": total_logs,
+        "successful": successful_logs,
+        "failed": failed_logs,
+        "recent_attacks": recent_attacks,
+        "success_rate": (successful_logs / total_logs * 100) if total_logs > 0 else 0,
+        "ml_enabled": model is not None
+    }
+    
+    return render_template("stats.html", stats=stats_data)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
+    print(f" تشغيل التطبيق على المنفذ {port}")
+    print(f" حالة نموذج ML: {'مفعّل' if model is not None else 'معطّل'}")
+    app.run(host="0.0.0.0", port=port, debug=False)
