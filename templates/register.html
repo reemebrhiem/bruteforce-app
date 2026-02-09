@@ -161,8 +161,8 @@ button.loading::after {
 <div class="box">
     <h2>إنشاء حساب جديد</h2>
 
-    <input id="username" placeholder="اسم المستخدم (3 أحرف على الأقل)" autocomplete="username">
-    <input id="password" type="password" placeholder="كلمة المرور (3 أحرف على الأقل)" autocomplete="new-password">
+    <input id="username" placeholder="اسم المستخدم" autocomplete="username">
+    <input id="password" type="password" placeholder="كلمة المرور" autocomplete="new-password">
 
     <button id="registerBtn" onclick="register()">تسجيل</button>
     
@@ -216,7 +216,7 @@ async function register() {
         const resultText = await response.text();
 
         if (resultText === "CREATED") {
-            showMessage(" تم إنشاء الحساب بنجاح! يتم تحويلك...", "success");
+            showMessage(" تم إنشاء الحساب بنجاح...", "success");
             
             setTimeout(() => {
                 window.location.href = "/";
@@ -253,11 +253,11 @@ document.addEventListener("keypress", function(event) {
 });
 
 document.getElementById("username").addEventListener("focus", function() {
-    showMessage("أدخل اسم مستخدم فريد (3 أحرف على الأقل)", "warning");
+    showMessage("أدخل اسم مستخدم ", "warning");
 });
 
 document.getElementById("password").addEventListener("focus", function() {
-    showMessage("أدخل كلمة مرور قوية (3 أحرف على الأقل)", "warning");
+    showMessage("أدخل كلمة مرور قوية ", "warning");
 });
 
 document.getElementById("username").addEventListener("blur", function() {
@@ -274,3 +274,4 @@ document.getElementById("password").addEventListener("blur", function() {
 </script>
 </body>
 </html>
+
