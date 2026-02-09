@@ -117,7 +117,7 @@ def predict_with_ml(username, ip_address):
         
         is_attack = failed_user_5min >= 5
 
-confidence = min(failed_user_5min / 10, 1.0)
+        confidence = min(failed_user_5min / 10, 1.0)
         
         return is_attack, confidence
     except:
@@ -194,3 +194,4 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
