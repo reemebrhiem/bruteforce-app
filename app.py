@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
+import numpy as np
 from datetime import datetime, timedelta
 import os
 import joblib
-import numpy as np
+
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -98,7 +99,7 @@ def is_blocked(username):
     return True, max(remaining, 0)
 
 def extract_features(username, ip_address):
-now = datetime.utcnow()
+    now = datetime.utcnow()
     
     five_min_ago = now - timedelta(minutes=5)
     failed_user_5min = LoginLog.query.filter(
@@ -260,4 +261,5 @@ if __name__ == "__main__":
     print(f" تشغيل التطبيق على المنفذ {port}")
     print(f" حالة نموذج ML: {'مفعّل' if model is not None else 'معطّل'}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
