@@ -218,7 +218,6 @@ async function handleLogin(event) {
         const result = await response.text();
 
         if (result === "SUCCESS") {
-            showMessage("تم تسجيل الدخول بنجاح", "success");
             setTimeout(() => {
                 window.location.href = "/dashboard/" + encodeURIComponent(username);
             }, 1000);
@@ -255,3 +254,4 @@ document.getElementById("loginForm").addEventListener("submit", handleLogin);
 </script>
 </body>
 </html>
+
