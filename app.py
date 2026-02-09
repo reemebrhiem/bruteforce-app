@@ -11,9 +11,7 @@ app.secret_key = "secret123"
 
 try:
     model, features_list = joblib.load("model.joblib")
-    print(" تم تحميل نموذج التعلم الآلي بنجاح")
 except Exception as e:
-    print(f"  تحذير: لم يتم تحميل model.joblib: {e}")
     model = None
     features_list = []
 
@@ -35,14 +33,12 @@ class User(db.Model):
 class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50))
-    success = db.Column(db.Integer)  # 1 = نجاح | 0 = فشل
+    success = db.Column(db.Integer)  
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip = db.Column(db.String(50))
 
 with app.app_context():
     db.create_all()
-    print(" قاعدة البيانات جاهزة")
-
 
 def cleanup_logs():
     count = LoginLog.query.count()
@@ -52,7 +48,6 @@ def cleanup_logs():
         for log in old_logs:
             db.session.delete(log)
         db.session.commit()
-        print(f" تم تنظيف {to_delete} سجل قديم")
 
 def get_client_ip():
     ip = request.headers.get("X-Forwarded-For", "")
@@ -66,19 +61,14 @@ def is_automated_tool():
     return ua == "" or any(keyword in ua for keyword in automated_keywords)
 
 def save_log(username, success):
-    try:
-        cleanup_logs()    
-        log = LoginLog(
-            username=username,
-            success=success,
-            ip=get_client_ip()
-        )
+    cleanup_logs()    
+    log = LoginLog(
+        username=username,
+        success=success,
+        ip=get_client_ip()
+   )
         db.session.add(log)
         db.session.commit()
-        print(f" سجل دخول: {username} - {'نجاح' if success == 1 else 'فشل'}")
-    except Exception as e:
-        db.session.rollback()
-        print(f" خطأ في حفظ السجل: {e}")
 
 def is_blocked(username):
     window = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
@@ -133,7 +123,6 @@ def extract_features(username, ip_address):
 
 def predict_with_ml(username, ip_address):
     if model is None:
-        print("  النموذج غير متاح، تخطي التنبؤ")
         return False, 0.0
     
     try:
@@ -143,13 +132,10 @@ def predict_with_ml(username, ip_address):
         
         prediction = model.predict(X)[0]
         probability = model.predict_proba(X)[0][1] if hasattr(model, 'predict_proba') else 1.0
-        
-        print(f" تنبؤ ML: {'هجوم' if prediction == 1 else 'عادي'} - ثقة: {probability:.2%}")
-        
+                
         return prediction == 1, probability
         
     except Exception as e:
-        print(f" خطأ في تنبؤ ML: {e}")
         return False, 0.0
 
 
@@ -184,52 +170,39 @@ def register():
 
 @app.route("/login", methods=["POST"])
 def login():
-    try:
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-        client_ip = get_client_ip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    client_ip = get_client_ip()
 
-        print(f" محاولة دخول: {username} من {client_ip}")
-
-        if not username or not password:
-            save_log("unknown", 0)
-            return "ERROR"
-
-        blocked, seconds = is_blocked(username)
-        if blocked:
-            save_log(username, 0)
-            return f"BLOCKED:{seconds}"
-
-        user = User.query.filter_by(username=username).first()
-
-        is_attack_ml, ml_confidence = predict_with_ml(username, client_ip)
-
-        if is_attack_ml and ml_confidence >= ML_THRESHOLD:
-            print(f" ML كشف هجوم! الثقة: {ml_confidence:.2%}")
-            save_log(username, 0)
-            return f"BLOCKED:60"
-
-        if is_automated_tool():
-            print(" كشف أداة آلية!")
-            save_log(username, 0)
-            return "WRONG_PASSWORD"
-
-        if not user:
-            save_log(username, 0)
-            return "NO_USER"
-
-        if user.password != password:
-            save_log(username, 0)
-            return "WRONG_PASSWORD"
-
-        save_log(username, 1)
-        print(f" دخول ناجح: {username}")
-        return "SUCCESS"
-
-    except Exception as e:
-        print(f" خطأ في تسجيل الدخول: {e}")
-        save_log("system_error", 0)
+    if not username or not password:
+        save_log("unknown", 0)
         return "ERROR"
+
+    blocked, seconds = is_blocked(username)
+    if blocked:
+       save_log(username, 0)
+       return f"BLOCKED:{seconds}"
+
+    is_attack_ml, ml_confidence = predict_with_ml(username, client_ip)
+    if is_attack_ml and ml_confidence >= ML_THRESHOLD:
+        save_log(username, 0)
+        return f"BLOCKED:60"
+
+    if is_automated_tool():
+        save_log(username, 0)
+        return "WRONG_PASSWORD"
+
+    if not user:
+        save_log(username, 0)
+        return "NO_USER"
+
+    if user.password != password:
+        save_log(username, 0)
+        return "WRONG_PASSWORD"
+
+    save_log(username, 1)
+    return "SUCCESS"
+
 
 @app.route("/dashboard/<username>")
 def dashboard(username):
@@ -239,6 +212,7 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
