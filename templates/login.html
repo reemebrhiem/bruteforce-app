@@ -61,6 +61,11 @@ button {
     color:white;
     border-radius:6px;
     cursor:pointer;
+    transition: all 0.3s;
+}
+
+button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 button:disabled {
@@ -75,6 +80,8 @@ button:disabled {
     color:#bbb;
     font-size:14px;
     cursor:pointer;
+    width: auto;
+    display: inline-block;
 }
 
 #registerBtn:hover {
@@ -83,9 +90,26 @@ button:disabled {
 }
 
 #msg {
-    color:#ff6b6b;
     margin-top:12px;
     font-size:14px;
+    min-height: 20px;
+}
+
+.msg-error {
+    color: #ff6b6b;
+}
+
+.msg-warning {
+    color: #ffcc00;
+}
+
+.msg-success {
+    color: #4caf50;
+}
+
+.msg-blocked {
+    color: #ff4444;
+    font-weight: bold;
 }
 </style>
 </head>
@@ -114,79 +138,116 @@ let timerInterval = null;
 window.addEventListener("keydown", function(e){
     if(blocked && (e.key === "F5" || (e.ctrlKey && e.key === "r"))){
         e.preventDefault();
-    }
-});
-window.addEventListener("beforeunload", function(e){
-    if(blocked){
-        e.preventDefault();
-        e.returnValue = "";
+        showMessage("لا يمكن تحديث الصفحة أثناء الحظر", "warning");
     }
 });
 
-function startTimer(seconds){
+function showMessage(text, type = "error") {
     const msg = document.getElementById("msg");
+    msg.innerText = text;
+    msg.className = "";
+    msg.classList.add(`msg-${type}`);
+}
+
+function startTimer(seconds){
     const loginBtn = document.getElementById("loginBtn");
     const regBtn = document.getElementById("registerBtn");
 
     blocked = true;
     loginBtn.disabled = true;
     regBtn.disabled = true;
-
+    
     let s = seconds;
-    msg.innerText = " تم اكتشاف هجوم قوة غاشمة، حاول بعد " + s + " ثانية";
+    showMessage(`تم اكتشاف هجوم قوة غاشمة، حاول بعد ${s} ثانية`, "blocked");
 
+    if (timerInterval) clearInterval(timerInterval);
+    
     timerInterval = setInterval(() => {
         s--;
-        msg.innerText = " تم اكتشاف هجوم قوة غاشمة، حاول بعد " + s + " ثانية";
+        showMessage(`تم اكتشاف هجوم قوة غاشمة، حاول بعد ${s} ثانية`, "blocked");
 
         if(s <= 0){
             clearInterval(timerInterval);
             blocked = false;
             loginBtn.disabled = false;
             regBtn.disabled = false;
-            msg.innerText = "";
+            showMessage("تم إلغاء الحظر، يمكنك المحاولة الآن", "success");
+            
+            setTimeout(() => {
+                showMessage("", "");
+            }, 3000);
         }
-    },1000);
+    }, 1000);
 }
 
-function login(){
-    if(blocked) return;
+async function login(){
+    if(blocked) {
+        showMessage("الحساب محظور حالياً، الرجاء الانتظار", "warning");
+        return false;
+    }
 
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-    const msg = document.getElementById("msg");
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const loginBtn = document.getElementById("loginBtn");
 
-    msg.innerText = "";
+    if (!username || !password) {
+        showMessage("الرجاء ملء جميع الحقول", "error");
+        return false;
+    }
 
-fetch("/login", {
-    method: "POST",
-    headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: "username=" + username + "&password=" + password
-})
-.then(res => res.text())
-.then(text => {
-    if (text === "SUCCESS") {
-        location.href = "/dashboard/" + username;
+const originalText = loginBtn.textContent;
+    loginBtn.disabled = true;
+    loginBtn.textContent = "جاري التحقق...";
+    showMessage("", "");
+
+    try {
+        const response = await fetch("/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+                username: username,
+                password: password
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.status === "success") {
+            showMessage(result.message || "تم تسجيل الدخول بنجاح", "success");
+            
+            setTimeout(() => {
+                location.href = "/dashboard/" + encodeURIComponent(username);
+            }, 1000);
+        } 
+        else if (response.status === 429) {
+            showMessage(result.message || "تم اكتشاف نشاط مشبوه", "blocked");
+            startTimer(result.seconds || 60);
+        }
+        else if (response.status === 404) {
+            showMessage(result.message || "اسم المستخدم غير صحيح", "error");
+        }
+        else if (response.status === 401) {
+            showMessage(result.message || "كلمة المرور غير صحيحة", "error");
+        }
+        else if (response.status === 403) {
+            showMessage(result.message || "تم رفض الطلب بسبب استخدام أدوات آلية", "warning");
+        }
+        else {
+            showMessage(result.message || "حدث خطأ غير متوقع", "error");
+        }
+    } 
+    catch (error) {
+        console.error("Error:", error);
+        showMessage("خطأ في الاتصال بالسيرفر", "error");
     }
-    else if (text.startsWith("BLOCKED")) {
-        const seconds = parseInt(text.split(":")[1]);
-        startTimer(seconds);
+    finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = originalText;
     }
-    else if (text === "NO_USER") {
-        msg.innerText = "الحساب غير موجود";
-    }
-    else if (text === "WRONG_PASSWORD") {
-        msg.innerText = "كلمة المرور غير صحيحة";
-    }
-    else {
-        msg.innerText = "حدث خطأ غير متوقع";
-    }
-})
-.catch(() => {
-    msg.innerText = "خطأ في الاتصال بالسيرفر";
-});
+
+    return false;
 }
 </script>
 </body>
