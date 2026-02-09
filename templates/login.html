@@ -90,26 +90,26 @@ button:disabled {
 }
 
 #msg {
+    color:#ff6b6b;
     margin-top:12px;
     font-size:14px;
-    min-height: 20px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.msg-blocked {
+    color: #ff4444;
+    font-weight: bold;
 }
 
 .msg-error {
     color: #ff6b6b;
 }
 
-.msg-warning {
-    color: #ffcc00;
-}
-
 .msg-success {
     color: #4caf50;
-}
-
-.msg-blocked {
-    color: #ff4444;
-    font-weight: bold;
 }
 </style>
 </head>
@@ -118,7 +118,7 @@ button:disabled {
 <div class="box">
 <h2>تسجيل الدخول</h2>
 
-<form onsubmit="login(); return false;">
+<form id="loginForm">
     <input id="username" placeholder="اسم المستخدم" required>
     <input id="password" type="password" placeholder="كلمة المرور" required>
     <button id="loginBtn" type="submit">دخول</button>
@@ -138,15 +138,15 @@ let timerInterval = null;
 window.addEventListener("keydown", function(e){
     if(blocked && (e.key === "F5" || (e.ctrlKey && e.key === "r"))){
         e.preventDefault();
-        showMessage("لا يمكن تحديث الصفحة أثناء الحظر", "warning");
+        showMessage("لا يمكن تحديث الصفحة أثناء الحظر", "error");
     }
 });
 
 function showMessage(text, type = "error") {
     const msg = document.getElementById("msg");
     msg.innerText = text;
-    msg.className = "";
-    msg.classList.add(`msg-${type}`);
+    msg.className = type === "blocked" ? "msg-blocked" : 
+                   type === "success" ? "msg-success" : "msg-error";
 }
 
 function startTimer(seconds){
@@ -158,13 +158,13 @@ function startTimer(seconds){
     regBtn.disabled = true;
     
     let s = seconds;
-    showMessage(`تم اكتشاف هجوم قوة غاشمة، حاول بعد ${s} ثانية`, "blocked");
+    showMessage(`تم اكتشاف نشاط مشبوه، حاول بعد ${s} ثانية`, "blocked");
 
     if (timerInterval) clearInterval(timerInterval);
     
     timerInterval = setInterval(() => {
         s--;
-        showMessage(`تم اكتشاف هجوم قوة غاشمة، حاول بعد ${s} ثانية`, "blocked");
+        showMessage(`تم اكتشاف نشاط مشبوه، حاول بعد ${s} ثانية`, "blocked");
 
         if(s <= 0){
             clearInterval(timerInterval);
@@ -174,16 +174,18 @@ function startTimer(seconds){
             showMessage("تم إلغاء الحظر، يمكنك المحاولة الآن", "success");
             
             setTimeout(() => {
-                showMessage("", "");
+                showMessage("");
             }, 3000);
         }
     }, 1000);
 }
 
-async function login(){
+async function handleLogin(event) {
+    event.preventDefault();
+    
     if(blocked) {
-        showMessage("الحساب محظور حالياً، الرجاء الانتظار", "warning");
-        return false;
+        showMessage("الحساب محظور حالياً، الرجاء الانتظار", "error");
+        return;
     }
 
     const username = document.getElementById("username").value.trim();
@@ -192,50 +194,51 @@ async function login(){
 
     if (!username || !password) {
         showMessage("الرجاء ملء جميع الحقول", "error");
-        return false;
-    }
+        return;
+}
 
-const originalText = loginBtn.textContent;
+    const originalText = loginBtn.textContent;
     loginBtn.disabled = true;
     loginBtn.textContent = "جاري التحقق...";
-    showMessage("", "");
+    showMessage("");
 
     try {
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
+
         const response = await fetch("/login", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded"
             },
-            body: new URLSearchParams({
-                username: username,
-                password: password
-            })
+            body: formData
         });
 
-        const result = await response.json();
+        const result = await response.text();
 
-        if (response.ok && result.status === "success") {
-            showMessage(result.message || "تم تسجيل الدخول بنجاح", "success");
-            
+        if (result === "SUCCESS") {
+            showMessage("تم تسجيل الدخول بنجاح", "success");
             setTimeout(() => {
-                location.href = "/dashboard/" + encodeURIComponent(username);
+                window.location.href = "/dashboard/" + encodeURIComponent(username);
             }, 1000);
         } 
-        else if (response.status === 429) {
-            showMessage(result.message || "تم اكتشاف نشاط مشبوه", "blocked");
-            startTimer(result.seconds || 60);
+        else if (result.startsWith("BLOCKED")) {
+            const seconds = result.split(":")[1];
+            const secondsNum = parseInt(seconds) || 60;
+            startTimer(secondsNum);
         }
-        else if (response.status === 404) {
-            showMessage(result.message || "اسم المستخدم غير صحيح", "error");
+        else if (result === "NO_USER") {
+            showMessage("اسم المستخدم غير صحيح", "error");
         }
-        else if (response.status === 401) {
-            showMessage(result.message || "كلمة المرور غير صحيحة", "error");
+        else if (result === "WRONG_PASSWORD") {
+            showMessage("كلمة المرور غير صحيحة", "error");
         }
-        else if (response.status === 403) {
-            showMessage(result.message || "تم رفض الطلب بسبب استخدام أدوات آلية", "warning");
+        else if (result === "ERROR") {
+            showMessage("حدث خطأ في المدخلات", "error");
         }
         else {
-            showMessage(result.message || "حدث خطأ غير متوقع", "error");
+            showMessage("حدث خطأ: " + result, "error");
         }
     } 
     catch (error) {
@@ -246,9 +249,9 @@ const originalText = loginBtn.textContent;
         loginBtn.disabled = false;
         loginBtn.textContent = originalText;
     }
-
-    return false;
 }
+
+document.getElementById("loginForm").addEventListener("submit", handleLogin);
 </script>
 </body>
 </html>
