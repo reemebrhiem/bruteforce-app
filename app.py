@@ -235,31 +235,10 @@ def login():
 def dashboard(username):
     return render_template("dashboard.html", username=username)
 
-@app.route("/stats")
-def stats():
-    total_logs = LoginLog.query.count()
-    successful_logs = LoginLog.query.filter_by(success=1).count()
-    failed_logs = LoginLog.query.filter_by(success=0).count()
-    recent_attacks = LoginLog.query.filter(
-        LoginLog.timestamp >= datetime.utcnow() - timedelta(hours=1),
-        LoginLog.success == 0
-    ).count()
-    
-    stats_data = {
-        "total_logs": total_logs,
-        "successful": successful_logs,
-        "failed": failed_logs,
-        "recent_attacks": recent_attacks,
-        "success_rate": (successful_logs / total_logs * 100) if total_logs > 0 else 0,
-        "ml_enabled": model is not None
-    }
-    
-    return render_template("stats.html", stats=stats_data)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    print(f" تشغيل التطبيق على المنفذ {port}")
-    print(f" حالة نموذج ML: {'مفعّل' if model is not None else 'معطّل'}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
