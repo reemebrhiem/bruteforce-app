@@ -1,4 +1,3 @@
-Reem Ebrahem., [21/08/47 10:17 م]
 from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -261,3 +260,4 @@ if __name__ == "__main__":
     print(f" تشغيل التطبيق على المنفذ {port}")
     print(f" حالة نموذج ML: {'مفعّل' if model is not None else 'معطّل'}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
