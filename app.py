@@ -4,14 +4,15 @@ import numpy as np
 from datetime import datetime, timedelta
 import os
 import joblib
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
 model = None
+features_list = None
 try:
     if os.path.exists("model.joblib"):
         model, features_list = joblib.load("model.joblib")
-
 except:
     model = None
 
@@ -23,20 +24,20 @@ app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL or "sqlite:///site.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-FAILED_THRESHOLD = 3   
+FAILED_THRESHOLD = 3    
 BLOCK_MINUTES = 1       
 MAX_LOGS = 80           
-ML_THRESHOLD = 0.7      
+ML_THRESHOLD = 0.7
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(50), nullable=False)
+    password = db.Column(db.String(255), nullable=False)  # هاش كلمة المرور
 
 class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50))
-    success = db.Column(db.Integer)  # 1 = نجاح | 0 = فشل
+    success = db.Column(db.Integer)  # 1 نجاح | 0 فشل
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip = db.Column(db.String(50))
 
@@ -103,22 +104,21 @@ def is_blocked(username):
 def predict_with_ml(username, ip_address):
     if model is None:
         return False, 0.0
-    
+
     try:
         now = datetime.utcnow()
         five_min_ago = now - timedelta(minutes=5)
-        
+
         failed_user_5min = LoginLog.query.filter(
             LoginLog.username == username,
             LoginLog.success == 0,
             LoginLog.timestamp >= five_min_ago,
             LoginLog.timestamp < now
         ).count()
-        
-        is_attack = failed_user_5min >= 5
 
+        is_attack = failed_user_5min >= 5
         confidence = min(failed_user_5min / 10, 1.0)
-        
+
         return is_attack, confidence
     except:
         return False, 0.0
@@ -142,7 +142,8 @@ def register():
         return "EXISTS"
 
     try:
-        user = User(username=username, password=password)
+        hashed_password = generate_password_hash(password)
+        user = User(username=username, password=hashed_password)
         db.session.add(user)
         db.session.commit()
         save_log(username, 1)
@@ -169,7 +170,7 @@ def login():
     is_attack_ml, ml_confidence = predict_with_ml(username, client_ip)
     if is_attack_ml and ml_confidence >= ML_THRESHOLD:
         save_log(username, 0)
-        return f"BLOCKED:60"
+        return "BLOCKED:60"
 
     if is_automated_tool():
         save_log(username, 0)
@@ -180,7 +181,7 @@ def login():
         save_log(username, 0)
         return "NO_USER"
 
-    if user.password != password:
+    if not check_password_hash(user.password, password):
         save_log(username, 0)
         return "WRONG_PASSWORD"
 
@@ -194,4 +195,3 @@ def dashboard(username):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
